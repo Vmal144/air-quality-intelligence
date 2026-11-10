@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroLens — Neural AQI Intelligence & Time-Series Forecaster</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- Boxicons (Modern Clean Vector Icons) -->
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <!-- Chart.js for Interactive Time-Series Forecasting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-deep: #060913;
+            --glass-bg: rgba(255, 255, 255, 0.04);
+            --glass-card: rgba(18, 24, 43, 0.58);
+            --glass-card-hover: rgba(24, 32, 58, 0.72);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-border-light: rgba(255, 255, 255, 0.22);
+            --glass-highlight: rgba(255, 255, 255, 0.35);
+            --text-main: #f0f4fc;
+            --text-muted: #8e9bb5;
+            --accent-cyan: #00f2fe;
+            --accent-blue: #4facfe;
+            --accent-purple: #7f00ff;
+            --accent-pink: #e100ff;
+            --accent-emerald: #10b981;
+
+            /* AQI levels */
+            --aqi-good: #10b981;
+            --aqi-satisfactory: #84cc16;
+            --aqi-moderate: #f59e0b;
+            --aqi-poor: #f97316;
+            --aqi-very-poor: #ef4444;
+            --aqi-severe: #881337;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ── Ambient Mesh Background ────────────────────────────── */
+        .ambient-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(95px);
+            opacity: 0.55;
+            animation: float 22s infinite alternate ease-in-out;
+        }
+
+        .orb-1 {
+            width: 580px;
+            height: 580px;
+            background: radial-gradient(circle, #4facfe, #00f2fe 40%, transparent 70%);
+            top: -120px;
+            left: -100px;
+            animation-duration: 18s;
+        }
+
+        .orb-2 {
+            width: 680px;
+            height: 680px;
+            background: radial-gradient(circle, #7f00ff, #e100ff 40%, transparent 70%);
+            bottom: -160px;
+            right: -100px;
+            animation-duration: 25s;
+            animation-delay: -6s;
+        }
+
+        .orb-3 {
+            width: 480px;
+            height: 480px;
+            background: radial-gradient(circle, #00c6ff, #0072ff 50%, transparent 70%);
+            top: 38%;
+            left: 45%;
+            animation-duration: 22s;
+            animation-delay: -10s;
+            opacity: 0.35;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translate(0px, 0px) scale(1) rotate(0deg);
+            }
+
+            50% {
+                transform: translate(60px, 80px) scale(1.15) rotate(180deg);
+            }
+
+            100% {
+                transform: translate(-40px, -60px) scale(0.95) rotate(360deg);
+            }
+        }
+
+        .ambient-noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 32px 32px;
+            opacity: 0.4;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* ── Container Layout ──────────────────────────────────── */
+        .wrapper {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 34px 24px 80px;
+        }
+
+        /* ── Header ────────────────────────────────────────────── */
+        header {
+            text-align: center;
+            margin-bottom: 38px;
+            position: relative;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--glass-border-light);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--accent-cyan);
+            margin-bottom: 14px;
+            box-shadow: 0 4px 20px rgba(0, 242, 254, 0.15);
+            transition: all 0.3s ease;
+        }
+
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00f2fe;
+            box-shadow: 0 0 10px #00f2fe;
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.4;
+                transform: scale(0.85);
+            }
+        }
+
+        h1 {
+            font-size: clamp(2.3rem, 5vw, 3.5rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+            background: linear-gradient(135deg, #ffffff 30%, #b2d5ff 70%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.05rem;
+            color: var(--text-muted);
+            max-width: 680px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* ── Top Model Paradigm Toggle ─────────────────────────── */
+        .phase-toggle-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-top: 24px;
+        }
+
+        .phase-toggle-container {
+            display: inline-flex;
+            background: rgba(14, 20, 38, 0.65);
+            border: 1px solid var(--glass-border-light);
+            border-radius: 22px;
+            padding: 6px;
+            gap: 8px;
+            backdrop-filter: blur(25px) saturate(160%);
+            -webkit-backdrop-filter: blur(25px) saturate(160%);
+            box-shadow:
+                0 15px 35px -5px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+        }
+
+        .phase-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 22px;
+            border-radius: 16px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            text-align: left;
+        }
+
+        .phase-icon {
+            font-size: 1.4rem;
+            line-height: 1;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+        }
+
+        .phase-title {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: inherit;
+            letter-spacing: 0.01em;
+        }
+
+        .phase-sub {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .phase-toggle-btn.active {
+            color: #ffffff;
+            background: linear-gradient(135deg, rgba(79, 172, 254, 0.28) 0%, rgba(0, 242, 254, 0.18) 100%);
+            border-color: rgba(0, 242, 254, 0.45);
+            box-shadow:
+                0 8px 24px -4px rgba(0, 242, 254, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+        }
+
+        .phase-toggle-btn.active.phase2-active {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.28) 0%, rgba(52, 211, 153, 0.18) 100%);
+            border-color: rgba(16, 185, 129, 0.45);
+            box-shadow:
+                0 8px 24px -4px rgba(16, 185, 129, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+        }
+
+        .phase-toggle-btn.active .phase-sub {
+            color: #d1e7ff;
+        }
+
+        .phase-toggle-btn.active.phase2-active .phase-sub {
+            color: #a7f3d0;
+        }
+
+        /* ── Grid Layout ───────────────────────────────────────── */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 32px;
+        }
+
+        @media (min-width: 1060px) {
+            .dashboard-grid {
+                grid-template-columns: 1.15fr 1.35fr;
+                align-items: start;
+            }
+        }
+
+        /* ── Glass Cards ───────────────────────────────────────── */
+        .glass-panel {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 34px;
+            backdrop-filter: blur(30px) saturate(160%);
+            -webkit-backdrop-filter: blur(30px) saturate(160%);
+            box-shadow:
+                0 30px 60px -15px rgba(0, 0, 0, 0.6),
+                0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .section-title {
+            font-size: 1.22rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #ffffff;
+        }
+
+        .section-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        /* ── Form Inputs ───────────────────────────────────────── */
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 22px;
+        }
+
+        .input-group label {
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .glass-select,
+        .glass-input {
+            width: 100%;
+            padding: 14px 18px;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            background: rgba(10, 16, 32, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            outline: none;
+            backdrop-filter: blur(10px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) inset;
+        }
+
+        .glass-select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e9bb5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+
+        .glass-select option {
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 8px;
+        }
+
+        .glass-input:focus,
+        .glass-select:focus {
+            border-color: var(--accent-cyan);
+            background: rgba(14, 22, 46, 0.75);
+            box-shadow:
+                0 0 0 4px rgba(0, 242, 254, 0.15),
+                0 4px 12px rgba(0, 0, 0, 0.3) inset;
+        }
+
+        /* ── Segmented Level Toggle Buttons ────────────────────── */
+        .level-toggle-container {
+            display: flex;
+            background: rgba(10, 16, 32, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 4px;
+            gap: 6px;
+            margin-bottom: 22px;
+        }
+
+        .level-toggle-btn {
+            flex: 1;
+            padding: 12px 18px;
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: transparent;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .level-toggle-btn.active {
+            color: #ffffff;
+            background: linear-gradient(135deg, rgba(79, 172, 254, 0.35), rgba(0, 242, 254, 0.25));
+            border: 1px solid rgba(0, 242, 254, 0.4);
+            box-shadow: 0 4px 16px rgba(0, 242, 254, 0.2);
+        }
+
+        /* ── Quick Date Chips ──────────────────────────────────── */
+        .quick-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .preset-chip {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preset-chip:hover {
+            color: #ffffff;
+            border-color: var(--accent-cyan);
+            background: rgba(0, 242, 254, 0.12);
+        }
+
+        /* ── Entity Data Badge Card ────────────────────────────── */
+        .entity-meta-chip {
+            background: rgba(14, 20, 36, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 14px 18px;
+            margin-bottom: 22px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .entity-meta-chip span {
+            color: #ffffff;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── Liquid Glass Action Button ────────────────────────── */
+        .btn-liquid-container {
+            margin-top: 28px;
+            position: relative;
+        }
+
+        .btn-liquid {
+            position: relative;
+            width: 100%;
+            padding: 18px 30px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #ffffff;
+            background: linear-gradient(135deg, rgba(79, 172, 254, 0.7) 0%, rgba(0, 242, 254, 0.5) 50%, rgba(127, 0, 255, 0.65) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 18px;
+            cursor: pointer;
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow:
+                0 15px 35px -5px rgba(0, 242, 254, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+                0 1px 0 0 rgba(255, 255, 255, 0.8) inset;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .btn-liquid::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+            transition: left 0.7s ease;
+        }
+
+        .btn-liquid:hover {
+            transform: translateY(-3px) scale(1.01);
+            box-shadow:
+                0 22px 45px -8px rgba(0, 242, 254, 0.55),
+                0 0 30px rgba(127, 0, 255, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .btn-liquid:hover::before {
+            left: 100%;
+        }
+
+        .btn-liquid:active {
+            transform: translateY(1px) scale(0.99);
+            box-shadow: 0 8px 20px rgba(0, 242, 254, 0.3);
+        }
+
+        .spinner {
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ── Right Panel: Results & Visualizations ──────────────── */
+        .result-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .aqi-hero-card {
+            background: linear-gradient(145deg, rgba(18, 24, 43, 0.7), rgba(11, 15, 29, 0.85));
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 36px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(30px);
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.7);
+            transition: all 0.5s ease;
+        }
+
+        .mode-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border-light);
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 12px;
+            letter-spacing: 0.04em;
+        }
+
+        .aqi-status-halo {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            filter: blur(80px);
+            opacity: 0.25;
+            transition: all 0.8s ease;
+            pointer-events: none;
+            background: var(--accent-cyan);
+        }
+
+        .aqi-number {
+            font-size: clamp(4.2rem, 8vw, 6rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            font-family: 'JetBrains Mono', monospace;
+            background: linear-gradient(180deg, #ffffff 40%, rgba(255, 255, 255, 0.6) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 10px 0;
+            text-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            transition: all 0.5s ease;
+        }
+
+        .aqi-bucket-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 22px;
+            border-radius: 999px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-top: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(16px);
+            transition: all 0.4s ease;
+        }
+
+        /* ── Gauge ─────────────────────────────────────────────── */
+        .gauge-section {
+            margin-top: 28px;
+            text-align: left;
+        }
+
+        .gauge-track {
+            height: 12px;
+            width: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg,
+                    var(--aqi-good) 0%,
+                    var(--aqi-satisfactory) 20%,
+                    var(--aqi-moderate) 40%,
+                    var(--aqi-poor) 60%,
+                    var(--aqi-very-poor) 80%,
+                    var(--aqi-severe) 100%);
+            position: relative;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5) inset;
+        }
+
+        .gauge-pin {
+            position: absolute;
+            top: 50%;
+            left: 0%;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 3px solid #060913;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
+            transition: left 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .gauge-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── Interactive Chart Card ────────────────────────────── */
+        .chart-card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 26px;
+            backdrop-filter: blur(30px);
+            position: relative;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 320px;
+            width: 100%;
+        }
+
+        /* ── Metrics Grid ──────────────────────────────────────── */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 14px;
+        }
+
+        .metric-chip {
+            background: rgba(14, 20, 36, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .metric-chip .label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .metric-chip .value {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── Table Card ────────────────────────────────────────── */
+        .table-card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
+            backdrop-filter: blur(25px);
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+        .table-card::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .table-card::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+        }
+
+        table.glass-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+
+        table.glass-table th {
+            text-align: left;
+            padding: 10px 14px;
+            color: var(--text-muted);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            font-weight: 600;
+            font-size: 0.76rem;
+            text-transform: uppercase;
+        }
+
+        table.glass-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── Health Advisory Glass Card ────────────────────────── */
+        .advisory-card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 22px;
+            backdrop-filter: blur(20px);
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .advisory-icon {
+            font-size: 1.8rem;
+            line-height: 1;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .advisory-content h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
+
+        .advisory-content p {
+            font-size: 0.86rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+
+        /* ── Colors ────────────────────────────────────────────── */
+        .color-good {
+            color: #10b981 !important;
+        }
+
+        .color-satisfactory {
+            color: #84cc16 !important;
+        }
+
+        .color-moderate {
+            color: #f59e0b !important;
+        }
+
+        .color-poor {
+            color: #f97316 !important;
+        }
+
+        .color-very-poor {
+            color: #ef4444 !important;
+        }
+
+        .color-severe {
+            color: #e11d48 !important;
+        }
+
+        .bg-good {
+            background: rgba(16, 185, 129, 0.2) !important;
+            border-color: rgba(16, 185, 129, 0.5) !important;
+        }
+
+        .bg-satisfactory {
+            background: rgba(132, 204, 22, 0.2) !important;
+            border-color: rgba(132, 204, 22, 0.5) !important;
+        }
+
+        .bg-moderate {
+            background: rgba(245, 158, 11, 0.2) !important;
+            border-color: rgba(245, 158, 11, 0.5) !important;
+        }
+
+        .bg-poor {
+            background: rgba(249, 115, 22, 0.2) !important;
+            border-color: rgba(249, 115, 22, 0.5) !important;
+        }
+
+        .bg-very-poor {
+            background: rgba(239, 68, 68, 0.2) !important;
+            border-color: rgba(239, 68, 68, 0.5) !important;
+        }
+
+        .bg-severe {
+            background: rgba(136, 19, 55, 0.3) !important;
+            border-color: rgba(225, 29, 72, 0.6) !important;
+        }
+
+        footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        footer .dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        @media (max-width: 768px) {
+            .glass-panel {
+                padding: 22px;
+            }
+
+            .wrapper {
+                padding: 20px 16px 60px;
+            }
+
+            .phase-toggle-btn {
+                padding: 8px 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Ambient Mesh Orbs -->
+    <div class="ambient-canvas">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+    <div class="ambient-noise"></div>
+
+    <div class="wrapper">
+        <!-- Header -->
+        <header>
+            <h1 id="topMainTitle">Air Quality Intelligence</h1>
+            <p class="subtitle" id="topSubtitle">
+                Select your location and time horizon to compute high-precision Air Quality Index forecasts
+                powered by ARIMA, RNN (LSTM), Random Forest, and Gradient Boosting architectures.
+            </p>
+
+            <!-- ── Top Model Family Toggle ────────────────── -->
+            <div class="phase-toggle-wrapper">
+                <div class="phase-toggle-container">
+                    <button type="button" class="phase-toggle-btn active" id="btnPhase1" data-phase="phase1">
+                        <span class="phase-icon"><i class='bx bx-line-chart'></i></span>
+                        <div class="phase-text">
+                            <span class="phase-title">Time Series Models</span>
+                            <span class="phase-sub">ARIMA & RNN (LSTM)</span>
+                        </div>
+                    </button>
+                    <button type="button" class="phase-toggle-btn" id="btnPhase2" data-phase="phase2">
+                        <span class="phase-icon"><i class='bx bx-git-repo-forked'></i></span>
+                        <div class="phase-text">
+                            <span class="phase-title">Ensemble Models</span>
+                            <span class="phase-sub">Random Forest & Gradient Boosting</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Left: Form Controls (Strictly following AQI_UI fields) -->
+            <div class="glass-panel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <div class="section-icon"><i class='bx bx-slider-alt'></i></div>
+                        Configuration
+                    </div>
+                </div>
+
+                <form id="forecastForm">
+                    <!-- 1. Forecast Level (State vs Station) -->
+                    <div class="input-group">
+                        <label>Forecast Level</label>
+                        <div class="level-toggle-container">
+                            <button type="button" class="level-toggle-btn active" id="btnLevelState" data-level="State">
+                                <i class='bx bxs-institution' style="margin-right: 5px; font-size: 1.05rem;"></i> State
+                                Level
+                            </button>
+                            <button type="button" class="level-toggle-btn" id="btnLevelStation" data-level="Station">
+                                <i class='bx bx-broadcast' style="margin-right: 5px; font-size: 1.05rem;"></i> Station
+                                Level
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 2. Select State or Station -->
+                    <div class="input-group">
+                        <label for="entitySelect" id="entityLabel">Select State</label>
+                        <select id="entitySelect" class="glass-select" required>
+                            <option value="" disabled selected>Loading...</option>
+                        </select>
+                    </div>
+
+                    <!-- Entity Info Chip -->
+                    <div class="entity-meta-chip" id="entityMetaChip">
+                        <div>Dataset Span: <span id="spanDates">Loading...</span></div>
+                        <div>Total Points: <span id="spanPoints">—</span></div>
+                    </div>
+
+                    <!-- 3. Date Range (From Date & To Date) -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="input-group">
+                            <label for="fromDate">From Date</label>
+                            <input type="date" id="fromDate" class="glass-input" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="toDate">To Date</label>
+                            <input type="date" id="toDate" class="glass-input" required>
+                        </div>
+                    </div>
+
+                    <!-- Date Presets -->
+                    <div class="input-group" style="margin-top: -10px;">
+                        <label style="font-size: 0.76rem;">Quick Presets</label>
+                        <div class="quick-presets">
+                            <button type="button" class="preset-chip" id="presetPast14"><i class='bx bx-history'
+                                    style="margin-right: 3px;"></i> Past 14 Days</button>
+                            <button type="button" class="preset-chip" id="presetPast30"><i class='bx bx-history'
+                                    style="margin-right: 3px;"></i> Past 30 Days</button>
+                            <button type="button" class="preset-chip" id="presetNext7"><i class='bx bx-trending-up'
+                                    style="margin-right: 3px;"></i> Next 7 Days (Future)</button>
+                            <button type="button" class="preset-chip" id="presetNext14"><i class='bx bx-trending-up'
+                                    style="margin-right: 3px;"></i> Next 14 Days (Future)</button>
+                        </div>
+                    </div>
+
+                    <!-- 4. Model Selection (Dynamic based on Top Toggle) -->
+                    <div class="input-group">
+                        <label for="modelSelect" id="modelSelectLabel">Forecasting Model</label>
+                        <select id="modelSelect" class="glass-select" required></select>
+                    </div>
+
+                    <!-- 5. Submit Button -->
+                    <div class="btn-liquid-container">
+                        <button type="submit" class="btn-liquid" id="btnSubmit">
+                            <span class="spinner" id="btnSpinner"></span>
+                            <span id="btnText"><i class='bx bx-rocket'
+                                    style="margin-right: 6px; font-size: 1.15rem; vertical-align: -2px;"></i> Compute
+                                AQI Forecast</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Right: Results & Time-Series Visualizer -->
+            <div class="result-panel">
+                <!-- Hero Score Card -->
+                <div class="aqi-hero-card" id="heroCard">
+                    <div class="aqi-status-halo" id="statusHalo"></div>
+                    <div class="mode-badge" id="modeBadge"><i class='bx bx-radar'
+                            style="margin-right: 4px; vertical-align: -1px;"></i> Ready to Infer</div>
+                    <div class="aqi-number" id="aqiDisplay">--</div>
+                    <div>
+                        <div class="aqi-bucket-pill" id="bucketPill">
+                            <span id="bucketIcon"><i class='bx bx-leaf'></i></span>
+                            <span id="bucketLabel">Awaiting forecast execution</span>
+                        </div>
+                    </div>
+
+                    <!-- Spectrum Gauge Bar -->
+                    <div class="gauge-section">
+                        <div class="gauge-track">
+                            <div class="gauge-pin" id="gaugePin" style="left: 0%;"></div>
+                        </div>
+                        <div class="gauge-labels">
+                            <span>0 Good</span>
+                            <span>100</span>
+                            <span>200</span>
+                            <span>300</span>
+                            <span>400</span>
+                            <span>500+</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Time-Series Forecast Chart -->
+                <div class="chart-card">
+                    <div class="section-header" style="margin-bottom: 14px; padding-bottom: 10px;">
+                        <div class="section-title" style="font-size: 1.05rem;">
+                            <div class="section-icon" style="width: 30px; height: 30px; font-size: 1rem;"><i
+                                    class='bx bx-line-chart'></i></div>
+                            Forecast vs Historical Trajectory
+                        </div>
+                        <span id="chartSubtitle"
+                            style="font-size: 0.75rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;"></span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="forecastChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Test Evaluation Metrics (Shown when backtesting or comparing) -->
+                <div class="chart-card" id="metricsCard" style="display: none;">
+                    <div class="section-header" style="margin-bottom: 14px; padding-bottom: 10px;">
+                        <div class="section-title" style="font-size: 1.05rem;">
+                            <div class="section-icon" style="width: 30px; height: 30px; font-size: 1rem;"><i
+                                    class='bx bx-analyse'></i></div>
+                            Model Test Evaluation Metrics
+                        </div>
+                        <span id="winnerBadge"
+                            style="font-size: 0.78rem; color: var(--accent-cyan); font-weight: 700;"></span>
+                    </div>
+                    <div class="metrics-grid" id="metricsGrid"></div>
+                </div>
+
+                <!-- Detailed Predictions Table -->
+                <div class="table-card" id="tableCard" style="display: none;">
+                    <div class="section-header" style="margin-bottom: 12px; padding-bottom: 8px;">
+                        <div class="section-title" style="font-size: 1rem;">
+                            <div class="section-icon" style="width: 28px; height: 28px; font-size: 0.95rem;"><i
+                                    class='bx bx-table'></i></div>
+                            Daily Forecast Breakdown
+                        </div>
+                    </div>
+                    <table class="glass-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Forecast AQI</th>
+                                <th>Category</th>
+                                <th>CI Range</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictionsTableBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Health Advisory -->
+                <div class="advisory-card">
+                    <div class="advisory-icon" id="advisoryIcon"><i class='bx bx-shield-plus'></i></div>
+                    <div class="advisory-content">
+                        <h4 id="advisoryHeading">Ready to Forecast</h4>
+                        <p id="advisoryText">
+                            Select a state or station and configure your target date range. The neural & statistical
+                            models
+                            will analyze historical patterns and project the AQI trajectory.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <span>AeroLens AQI Intelligence</span>
+            <span class="dot"></span>
+            <span>ARIMA · LSTM · Random Forest · Gradient Boosting</span>
+            <span class="dot"></span>
+            <span>Indian CPCB Standards</span>
+        </footer>
+    </div>
+
+    <!-- JavaScript Controller -->
+    <script>
+        let currentPhase = "phase1"; // 'phase1' (default) or 'phase2'
+        let currentLevel = "State";
+        let currentEntityInfo = null;
+        let chartInstance = null;
+
+        // Elements
+        const btnPhase1 = document.getElementById('btnPhase1');
+        const btnPhase2 = document.getElementById('btnPhase2');
+        const btnLevelState = document.getElementById('btnLevelState');
+        const btnLevelStation = document.getElementById('btnLevelStation');
+        const entitySelect = document.getElementById('entitySelect');
+        const entityLabel = document.getElementById('entityLabel');
+        const fromDateInput = document.getElementById('fromDate');
+        const toDateInput = document.getElementById('toDate');
+        const modelSelect = document.getElementById('modelSelect');
+        const spanDates = document.getElementById('spanDates');
+        const spanPoints = document.getElementById('spanPoints');
+        const btnSubmit = document.getElementById('btnSubmit');
+        const btnSpinner = document.getElementById('btnSpinner');
+        const btnText = document.getElementById('btnText');
+
+        // Top Phase Toggle Handler
+        btnPhase1.addEventListener('click', () => setPhase("phase1"));
+        btnPhase2.addEventListener('click', () => setPhase("phase2"));
+
+        function setPhase(phase) {
+            currentPhase = phase;
+            if (phase === "phase1") {
+                btnPhase1.classList.add('active');
+                btnPhase1.classList.remove('phase2-active');
+                btnPhase2.classList.remove('active', 'phase2-active');
+            } else {
+                btnPhase2.classList.add('active', 'phase2-active');
+                btnPhase1.classList.remove('active');
+            }
+            populateModelOptions();
+        }
+
+        // Populate Model Select based on active phase
+        function populateModelOptions() {
+            modelSelect.innerHTML = '';
+            if (currentPhase === "phase1") {
+                const options = [
+                    { value: "ARIMA", text: "ARIMA (Statistical Time Series with 95% CI)" },
+                    { value: "RNN (LSTM)", text: "RNN / LSTM (Recurrent Neural Network)" },
+                    { value: "Compare Both", text: "Compare Both (ARIMA vs LSTM)" }
+                ];
+                options.forEach(opt => {
+                    const el = document.createElement('option');
+                    el.value = opt.value;
+                    el.textContent = opt.text;
+                    modelSelect.appendChild(el);
+                });
+            } else {
+                const options = [
+                    { value: "Random Forest", text: "Random Forest (Ensemble Bagging · R²=0.940)" },
+                    { value: "Gradient Boosting", text: "Gradient Boosting (Ensemble Boosting · R²=0.933)" },
+                    { value: "Compare Both", text: "Compare Both (Random Forest vs Gradient Boosting)" }
+                ];
+                options.forEach(opt => {
+                    const el = document.createElement('option');
+                    el.value = opt.value;
+                    el.textContent = opt.text;
+                    modelSelect.appendChild(el);
+                });
+            }
+        }
+
+        // Level Toggle Handlers
+        btnLevelState.addEventListener('click', () => setLevel("State"));
+        btnLevelStation.addEventListener('click', () => setLevel("Station"));
+
+        function setLevel(level) {
+            if (currentLevel === level) return;
+            currentLevel = level;
+            if (level === "State") {
+                btnLevelState.classList.add('active');
+                btnLevelStation.classList.remove('active');
+                entityLabel.innerText = "Select State";
+            } else {
+                btnLevelStation.classList.add('active');
+                btnLevelState.classList.remove('active');
+                entityLabel.innerText = "Select Station";
+            }
+            loadEntities();
+        }
+
+        // Load Entities (States or Stations)
+        async function loadEntities() {
+            entitySelect.innerHTML = '<option value="" disabled selected>Loading...</option>';
+            try {
+                const res = await fetch(`/api/entities?level=${currentLevel}`);
+                const data = await res.json();
+                entitySelect.innerHTML = '';
+                data.entities.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item;
+                    opt.textContent = item;
+                    entitySelect.appendChild(opt);
+                });
+
+                if (data.default && data.entities.includes(data.default)) {
+                    entitySelect.value = data.default;
+                } else if (data.entities.length > 0) {
+                    entitySelect.selectedIndex = 0;
+                }
+                onEntityChanged();
+            } catch (err) {
+                console.error("Failed to load entities:", err);
+                entitySelect.innerHTML = '<option value="" disabled selected>Failed to load</option>';
+            }
+        }
+
+        // Fetch entity metadata & date defaults
+        async function onEntityChanged() {
+            const entity = entitySelect.value;
+            if (!entity) return;
+
+            spanDates.innerText = "Fetching...";
+            spanPoints.innerText = "...";
+
+            try {
+                const res = await fetch(`/api/entity-info?level=${currentLevel}&entity=${encodeURIComponent(entity)}`);
+                const info = await res.json();
+                currentEntityInfo = info;
+
+                spanDates.innerText = `${info.data_start} to ${info.data_end}`;
+                spanPoints.innerText = `${info.n_points} daily points`;
+
+                fromDateInput.min = info.data_start;
+                fromDateInput.value = info.default_from;
+                toDateInput.value = info.default_to;
+            } catch (err) {
+                console.error("Failed to fetch entity info:", err);
+                spanDates.innerText = "Historical data span";
+            }
+        }
+
+        entitySelect.addEventListener('change', onEntityChanged);
+
+        // Date Presets
+        document.getElementById('presetPast14').addEventListener('click', () => applyPreset(-14, 0));
+        document.getElementById('presetPast30').addEventListener('click', () => applyPreset(-30, 0));
+        document.getElementById('presetNext7').addEventListener('click', () => applyPreset(0, 7));
+        document.getElementById('presetNext14').addEventListener('click', () => applyPreset(0, 14));
+
+        function applyPreset(offsetStart, offsetEnd) {
+            if (!currentEntityInfo) return;
+            const refDate = new Date(currentEntityInfo.data_end);
+
+            const start = new Date(refDate);
+            start.setDate(start.getDate() + offsetStart);
+
+            const end = new Date(refDate);
+            end.setDate(end.getDate() + offsetEnd);
+
+            fromDateInput.value = start.toISOString().split('T')[0];
+            toDateInput.value = end.toISOString().split('T')[0];
+        }
+
+        // Counter Animation
+        function animateCounter(targetValue) {
+            const display = document.getElementById('aqiDisplay');
+            const startVal = parseFloat(display.innerText) || 0;
+            const duration = 850;
+            const startTime = performance.now();
+
+            function update(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const ease = 1 - Math.pow(1 - progress, 3);
+                const current = (startVal + (targetValue - startVal) * ease).toFixed(1);
+                display.innerText = current;
+
+                if (progress < 1) requestAnimationFrame(update);
+                else display.innerText = targetValue.toFixed(1);
+            }
+            requestAnimationFrame(update);
+        }
+
+        // Theme bucket styling
+        const BUCKET_THEMES = {
+            'Good': { colorClass: 'color-good', bgClass: 'bg-good', halo: '#10b981', icon: "<i class='bx bx-leaf'></i>" },
+            'Satisfactory': { colorClass: 'color-satisfactory', bgClass: 'bg-satisfactory', halo: '#84cc16', icon: "<i class='bx bx-sun'></i>" },
+            'Moderate': { colorClass: 'color-moderate', bgClass: 'bg-moderate', halo: '#f59e0b', icon: "<i class='bx bx-error-alt'></i>" },
+            'Poor': { colorClass: 'color-poor', bgClass: 'bg-poor', halo: '#f97316', icon: "<i class='bx bx-mask'></i>" },
+            'Very Poor': { colorClass: 'color-very-poor', bgClass: 'bg-very-poor', halo: '#ef4444', icon: "<i class='bx bxs-radiation'></i>" },
+            'Severe': { colorClass: 'color-severe', bgClass: 'bg-severe', halo: '#881337', icon: "<i class='bx bxs-shield-x'></i>" }
+        };
+
+        // Form Submit Handler
+        document.getElementById('forecastForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            btnSubmit.disabled = true;
+            btnSpinner.style.display = 'inline-block';
+            btnText.innerText = 'Computing Trajectory...';
+
+            const payload = {
+                phase: currentPhase,
+                level: currentLevel,
+                entity: entitySelect.value,
+                from_date: fromDateInput.value,
+                to_date: toDateInput.value,
+                model: modelSelect.value
+            };
+
+            try {
+                const res = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error || 'Prediction failed');
+                }
+
+                const data = await res.json();
+                renderResults(data);
+
+            } catch (err) {
+                console.error("Prediction error:", err);
+                alert(`Error: ${err.message}`);
+            } finally {
+                btnSubmit.disabled = false;
+                btnSpinner.style.display = 'none';
+                btnText.innerHTML = "<i class='bx bx-rocket' style='margin-right: 6px; font-size: 1.15rem; vertical-align: -2px;'></i> Compute AQI Forecast";
+            }
+        });
+
+        // Render Results
+        function renderResults(data) {
+            const modeBadge = document.getElementById('modeBadge');
+            let modeIcon = "bx-time-five";
+            if (data.mode === "backtest") modeIcon = "bx-history";
+            else if (data.mode === "future") modeIcon = "bx-trending-up";
+            else if (data.mode === "mixed") modeIcon = "bx-git-merge";
+            modeBadge.innerHTML = `<i class='bx ${modeIcon}' style="margin-right: 5px; vertical-align: -1px;"></i> ${data.mode_label}`;
+
+            // Animate AQI value
+            animateCounter(data.summary_aqi);
+
+            // Update Theme Colors & Icons
+            const bucket = data.summary_bucket;
+            const theme = BUCKET_THEMES[bucket] || BUCKET_THEMES['Moderate'];
+            const aqiDisplay = document.getElementById('aqiDisplay');
+            const bucketPill = document.getElementById('bucketPill');
+            const statusHalo = document.getElementById('statusHalo');
+
+            Object.values(BUCKET_THEMES).forEach(t => {
+                aqiDisplay.classList.remove(t.colorClass);
+                bucketPill.classList.remove(t.bgClass);
+            });
+
+            aqiDisplay.classList.add(theme.colorClass);
+            bucketPill.classList.add(theme.bgClass);
+
+            document.getElementById('bucketIcon').innerHTML = theme.icon;
+            document.getElementById('bucketLabel').innerText = `${bucket} (Avg ${data.summary_aqi})`;
+            statusHalo.style.background = theme.halo;
+
+            // Pin on gauge
+            const pinPct = Math.min(Math.max((data.summary_aqi / 500) * 100, 2), 98);
+            document.getElementById('gaugePin').style.left = `${pinPct}%`;
+
+            // Advisory Card
+            const advIcon = data.advisory && data.advisory.icon ? data.advisory.icon : 'bx bx-shield-plus';
+            document.getElementById('advisoryIcon').innerHTML = `<i class='${advIcon}'></i>`;
+            document.getElementById('advisoryHeading').innerText = data.advisory.heading;
+            document.getElementById('advisoryText').innerText = data.advisory.text;
+
+            // Render Time Series Chart
+            renderChart(data);
+
+            // Render Metrics (if available)
+            renderMetrics(data);
+
+            // Render Table
+            renderTable(data);
+        }
+
+        // Chart.js Time-Series Plotting
+        function renderChart(data) {
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+            document.getElementById('chartSubtitle').innerText = `${data.entity} (${data.from_date} to ${data.to_date})`;
+
+            const dateSet = new Set();
+            (data.actual_series || []).forEach(pt => dateSet.add(pt.timestamp));
+            Object.values(data.predictions).forEach(preds => {
+                preds.forEach(p => dateSet.add(p.timestamp));
+            });
+            const allDates = Array.from(dateSet).sort();
+
+            const datasets = [];
+
+            // 1. Actual Historical Line
+            if (data.actual_series && data.actual_series.length > 0) {
+                const actualMap = {};
+                data.actual_series.forEach(pt => actualMap[pt.timestamp] = pt.aqi);
+                datasets.push({
+                    label: 'Actual AQI',
+                    data: allDates.map(d => actualMap[d] ?? null),
+                    borderColor: '#ffffff',
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    borderWidth: 2.5,
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
+                    tension: 0.2
+                });
+            }
+
+            // 2. Predictions lines
+            const modelColors = {
+                'ARIMA': '#00f2fe',
+                'RNN (LSTM)': '#e100ff',
+                'Random Forest': '#10b981',
+                'Gradient Boosting': '#f59e0b'
+            };
+
+            Object.entries(data.predictions).forEach(([mName, mPreds]) => {
+                const pMap = {};
+                const upperMap = {};
+                const lowerMap = {};
+                mPreds.forEach(p => {
+                    pMap[p.timestamp] = p.predicted_AQI;
+                    if (p.upper !== undefined) upperMap[p.timestamp] = p.upper;
+                    if (p.lower !== undefined) lowerMap[p.timestamp] = p.lower;
+                });
+
+                const color = modelColors[mName] || '#4facfe';
+
+                // Main prediction line
+                datasets.push({
+                    label: `${mName} Forecast`,
+                    data: allDates.map(d => pMap[d] ?? null),
+                    borderColor: color,
+                    borderDash: [5, 4],
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 7,
+                    tension: 0.3
+                });
+
+                // Confidence interval area (if available)
+                if (Object.keys(upperMap).length > 0 && Object.keys(lowerMap).length > 0) {
+                    datasets.push({
+                        label: `${mName} Upper CI`,
+                        data: allDates.map(d => upperMap[d] ?? null),
+                        borderColor: 'transparent',
+                        backgroundColor: 'rgba(0, 242, 254, 0.08)',
+                        pointRadius: 0,
+                        fill: '+1'
+                    });
+                    datasets.push({
+                        label: `${mName} Lower CI`,
+                        data: allDates.map(d => lowerMap[d] ?? null),
+                        borderColor: 'transparent',
+                        backgroundColor: 'transparent',
+                        pointRadius: 0,
+                        fill: false
+                    });
+                }
+            });
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allDates,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#8e9bb5',
+                                font: { family: 'Plus Jakarta Sans', size: 11 },
+                                filter: (item) => !item.text.includes('CI')
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(10, 16, 32, 0.92)',
+                            borderColor: 'rgba(255, 255, 255, 0.15)',
+                            borderWidth: 1,
+                            titleColor: '#ffffff',
+                            bodyColor: '#f0f4fc',
+                            padding: 12
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#8e9bb5', font: { family: 'JetBrains Mono', size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#8e9bb5', font: { family: 'JetBrains Mono', size: 10 } },
+                            title: { display: true, text: 'AQI Index', color: '#8e9bb5' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render Metrics Grid
+        function renderMetrics(data) {
+            const card = document.getElementById('metricsCard');
+            const grid = document.getElementById('metricsGrid');
+            const winnerBadge = document.getElementById('winnerBadge');
+
+            if (!data.metrics || Object.keys(data.metrics).length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+
+            card.style.display = 'block';
+            grid.innerHTML = '';
+
+            if (data.winner) {
+                winnerBadge.innerHTML = `<i class='bx bxs-trophy' style='color: #ffd700; margin-right: 4px; vertical-align: -1px;'></i> Best Model: ${data.winner}`;
+            } else {
+                winnerBadge.innerHTML = '';
+            }
+
+            Object.entries(data.metrics).forEach(([mName, mVals]) => {
+                const isWinner = (data.winner === mName);
+                const titleColor = isWinner ? 'var(--accent-cyan)' : '#ffffff';
+                const trophyPrefix = isWinner ? "<i class='bx bxs-trophy' style='color: #ffd700; margin-right: 6px; vertical-align: -1px;'></i>" : "";
+                grid.innerHTML += `
+                    <div class="metric-chip" style="grid-column: 1 / -1; text-align: left; background: rgba(255,255,255,0.03); border-color: ${isWinner ? 'rgba(0,242,254,0.4)' : 'rgba(255,255,255,0.08)'};">
+                        <strong style="color: ${titleColor}; font-size: 0.92rem;">
+                            ${trophyPrefix}${mName} Performance Benchmarks
+                        </strong>
+                    </div>
+                    <div class="metric-chip">
+                        <div class="label">MAE</div>
+                        <div class="value">${mVals.MAE}</div>
+                    </div>
+                    <div class="metric-chip">
+                        <div class="label">RMSE</div>
+                        <div class="value">${mVals.RMSE}</div>
+                    </div>
+                    <div class="metric-chip">
+                        <div class="label">MAPE</div>
+                        <div class="value">${mVals.MAPE}%</div>
+                    </div>
+                    <div class="metric-chip">
+                        <div class="label">R² Score</div>
+                        <div class="value">${mVals.R2}</div>
+                    </div>
+                    <div class="metric-chip">
+                        <div class="label">Category Acc</div>
+                        <div class="value">${mVals.Cat_Accuracy}%</div>
+                    </div>
+                `;
+            });
+        }
+
+        // Render Table Breakdown
+        function renderTable(data) {
+            const card = document.getElementById('tableCard');
+            const tbody = document.getElementById('predictionsTableBody');
+
+            const primaryModel = Object.keys(data.predictions)[0];
+            const records = data.predictions[primaryModel] || [];
+
+            if (records.length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+
+            card.style.display = 'block';
+            tbody.innerHTML = '';
+
+            records.forEach(r => {
+                const b = r.AQI_Bucket || 'Moderate';
+                const theme = BUCKET_THEMES[b] || BUCKET_THEMES['Moderate'];
+                const ciStr = (r.lower !== undefined && r.upper !== undefined) ? `${r.lower} – ${r.upper}` : '± 16.5';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${r.timestamp}</td>
+                        <td style="font-weight: 700; color: #ffffff;">${r.predicted_AQI}</td>
+                        <td>
+                            <span class="${theme.colorClass}" style="font-weight: 600;">
+                                ${theme.icon} ${b}
+                            </span>
+                        </td>
+                        <td style="color: var(--text-muted);">${ciStr}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Init on load
+        populateModelOptions();
+        loadEntities();
+    </script>
+</body>
+
+</html>
