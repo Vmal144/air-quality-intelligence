@@ -172,25 +172,11 @@ col_config, col_results = st.columns([1, 2], gap="large")
 with col_config:
     st.markdown("### ⚙️ Configuration")
 
-    # 1. Forecast Level (State vs Station)
-    level_choice = st.radio(
-        "Forecast Level",
-        options=["State Level", "Station Level"],
-        index=0,
-        horizontal=True
-    )
-    is_station = (level_choice == "Station Level")
-    level = "Station" if is_station else "State"
-
-    # 2. Select Entity
-    if is_station:
-        station_list = list_valid_stations()
-        default_idx = station_list.index("Pusa, Delhi - DPCC") if "Pusa, Delhi - DPCC" in station_list else 0
-        entity = st.selectbox("Select Station", options=station_list, index=default_idx)
-    else:
-        state_list = list_valid_states()
-        default_idx = state_list.index("Delhi") if "Delhi" in state_list else 0
-        entity = st.selectbox("Select State", options=state_list, index=default_idx)
+    # 1. Select State
+    level = "State"
+    state_list = list_valid_states()
+    default_idx = state_list.index("Delhi") if "Delhi" in state_list else 0
+    entity = st.selectbox("Select State", options=state_list, index=default_idx)
 
     # Fetch entity historical span
     series = get_entity_series_cached(level, entity)

@@ -964,30 +964,15 @@
                 </div>
 
                 <form id="forecastForm">
-                    <!-- 1. Forecast Level (State vs Station) -->
-                    <div class="input-group">
-                        <label>Forecast Level</label>
-                        <div class="level-toggle-container">
-                            <button type="button" class="level-toggle-btn active" id="btnLevelState" data-level="State">
-                                <i class='bx bxs-institution' style="margin-right: 5px; font-size: 1.05rem;"></i> State
-                                Level
-                            </button>
-                            <button type="button" class="level-toggle-btn" id="btnLevelStation" data-level="Station">
-                                <i class='bx bx-broadcast' style="margin-right: 5px; font-size: 1.05rem;"></i> Station
-                                Level
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- 2. Select State or Station -->
+                    <!-- 1. Select State -->
                     <div class="input-group">
                         <label for="entitySelect" id="entityLabel">Select State</label>
                         <select id="entitySelect" class="glass-select" required>
-                            <option value="" disabled selected>Loading...</option>
+                            <option value="" disabled selected>Loading States...</option>
                         </select>
                     </div>
 
-                    <!-- 3. Date Range (From Date & To Date) -->
+                    <!-- 2. Date Range (From Date & To Date) -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="input-group">
                             <label for="fromDate">From Date</label>
@@ -1106,8 +1091,7 @@
                     <div class="advisory-content">
                         <h4 id="advisoryHeading">Ready to Forecast</h4>
                         <p id="advisoryText">
-                            Select a state or station and configure your target date range. The neural & statistical
-                            models
+                            Select a state and configure your target date range. The neural & statistical models
                             will analyze historical patterns and project the AQI trajectory.
                         </p>
                     </div>
@@ -1134,8 +1118,6 @@
         // Elements
         const btnPhase1 = document.getElementById('btnPhase1');
         const btnPhase2 = document.getElementById('btnPhase2');
-        const btnLevelState = document.getElementById('btnLevelState');
-        const btnLevelStation = document.getElementById('btnLevelStation');
         const entitySelect = document.getElementById('entitySelect');
         const entityLabel = document.getElementById('entityLabel');
         const fromDateInput = document.getElementById('fromDate');
@@ -1192,30 +1174,11 @@
             }
         }
 
-        // Level Toggle Handlers
-        btnLevelState.addEventListener('click', () => setLevel("State"));
-        btnLevelStation.addEventListener('click', () => setLevel("Station"));
-
-        function setLevel(level) {
-            if (currentLevel === level) return;
-            currentLevel = level;
-            if (level === "State") {
-                btnLevelState.classList.add('active');
-                btnLevelStation.classList.remove('active');
-                entityLabel.innerText = "Select State";
-            } else {
-                btnLevelStation.classList.add('active');
-                btnLevelState.classList.remove('active');
-                entityLabel.innerText = "Select Station";
-            }
-            loadEntities();
-        }
-
-        // Load Entities (States or Stations)
+        // Load States
         async function loadEntities() {
             entitySelect.innerHTML = '<option value="" disabled selected>Loading...</option>';
             try {
-                const res = await fetch(`/api/entities?level=${currentLevel}`);
+                const res = await fetch(`/api/entities?level=State`);
                 const data = await res.json();
                 entitySelect.innerHTML = '';
                 data.entities.forEach(item => {
