@@ -19,19 +19,27 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Add src directory to path
+# Add root and src directory to sys.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 SRC_DIR = os.path.join(BASE_DIR, "src")
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 # Import backend inference functions from app
-from app import (
-    list_valid_states, list_valid_stations,
-    get_entity_series_cached,
-    predict_arima_robust, predict_lstm_robust, predict_ensemble_model,
-    compute_metrics, aqi_to_bucket, bucket_color, ADVISORIES
-)
+try:
+    from app import (
+        list_valid_states, list_valid_stations,
+        get_entity_series_cached,
+        predict_arima_robust, predict_lstm_robust, predict_ensemble_model,
+        compute_metrics, aqi_to_bucket, bucket_color, ADVISORIES
+    )
+except Exception as err:
+    import traceback
+    st.error(f"Error loading forecasting engine: {err}")
+    st.code(traceback.format_exc())
+    st.stop()
 
 # ── Custom CSS for Frosted Glassmorphism Theme ───────────────────────────
 st.markdown("""

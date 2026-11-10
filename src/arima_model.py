@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 arima_model.py — ARIMA and Seasonal ARIMA forecasting for Air Quality Index (AQI).
 
@@ -20,13 +22,19 @@ import numpy as np
 import pandas as pd
 import joblib
 from statsmodels.tsa.stattools import adfuller
+
 try:
     import pmdarima as pm
     from pmdarima.arima import ARIMA
     PMDARIMA_AVAILABLE = True
 except Exception:
-    pm = None
-    ARIMA = None
+    class _MockPM:
+        class arima:
+            class ARIMA:
+                pass
+        auto_arima = None
+    pm = _MockPM()
+    ARIMA = _MockPM.arima.ARIMA
     PMDARIMA_AVAILABLE = False
 
 # Ensure imports from local src directory
@@ -122,6 +130,8 @@ def _fit_model(y_train: np.ndarray, recommended_d: int) -> Tuple[pm.arima.ARIMA,
     m = 7 if seasonal else 1
 
     try:
+        if not PMDARIMA_AVAILABLE or pm.auto_arima is None:
+            raise RuntimeError("pmdarima is not available")
         model = pm.auto_arima(
             y_train,
             d=recommended_d,
