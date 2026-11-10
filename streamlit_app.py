@@ -359,6 +359,7 @@ with col_results:
                             x=act_dates, y=act_vals,
                             mode="lines+markers",
                             name="Historical Actual AQI",
+                            connectgaps=True,
                             line=dict(color="#ffffff", width=2.5),
                             marker=dict(size=5, color="#ffffff")
                         ))

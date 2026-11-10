@@ -80,10 +80,15 @@ def get_raw_df():
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 def get_entity_series_cached(level: str, entity: str):
-    """Fetch series for state or station."""
+    """Fetch series for state or station with continuous daily frequency."""
     if level.lower() == "station":
-        return get_station_series(entity)
-    return get_state_series(entity)
+        s = get_station_series(entity)
+    else:
+        s = get_state_series(entity)
+    if s is not None and len(s) > 1:
+        full_idx = pd.date_range(s.index.min(), s.index.max(), freq="D")
+        s = s.reindex(full_idx).interpolate(method="time").bfill().ffill()
+    return s
 
 
 def predict_arima_robust(entity: str, start_dt: pd.Timestamp, end_dt: pd.Timestamp):
