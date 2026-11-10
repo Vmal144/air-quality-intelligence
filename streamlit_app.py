@@ -197,34 +197,12 @@ with col_config:
     if series is not None and not series.empty:
         data_start = series.index.min().date()
         data_end = series.index.max().date()
-        total_pts = len(series)
-        st.caption(f"📅 Historical Data Span: **{data_start}** to **{data_end}** ({total_pts} records)")
     else:
         data_start = datetime.date(2024, 1, 1)
         data_end = datetime.date(2024, 3, 31)
-        total_pts = 0
-        st.caption("Historical Data Span: Loading...")
 
-    # 3. Date Selection & Presets
+    # 3. Date Selection
     st.markdown("##### 📅 Target Horizon")
-    
-    preset_cols = st.columns(4)
-    with preset_cols[0]:
-        if st.button("Past 14d", use_container_width=True):
-            st.session_state["from_dt"] = data_end - datetime.timedelta(days=14)
-            st.session_state["to_dt"] = data_end
-    with preset_cols[1]:
-        if st.button("Past 30d", use_container_width=True):
-            st.session_state["from_dt"] = data_end - datetime.timedelta(days=30)
-            st.session_state["to_dt"] = data_end
-    with preset_cols[2]:
-        if st.button("Next 7d", use_container_width=True):
-            st.session_state["from_dt"] = data_end + datetime.timedelta(days=1)
-            st.session_state["to_dt"] = data_end + datetime.timedelta(days=7)
-    with preset_cols[3]:
-        if st.button("Next 14d", use_container_width=True):
-            st.session_state["from_dt"] = data_end + datetime.timedelta(days=1)
-            st.session_state["to_dt"] = data_end + datetime.timedelta(days=14)
 
     # Defaults in session state
     if "from_dt" not in st.session_state:

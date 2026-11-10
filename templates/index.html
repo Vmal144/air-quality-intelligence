@@ -987,12 +987,6 @@
                         </select>
                     </div>
 
-                    <!-- Entity Info Chip -->
-                    <div class="entity-meta-chip" id="entityMetaChip">
-                        <div>Dataset Span: <span id="spanDates">Loading...</span></div>
-                        <div>Total Points: <span id="spanPoints">—</span></div>
-                    </div>
-
                     <!-- 3. Date Range (From Date & To Date) -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="input-group">
@@ -1002,21 +996,6 @@
                         <div class="input-group">
                             <label for="toDate">To Date</label>
                             <input type="date" id="toDate" class="glass-input" required>
-                        </div>
-                    </div>
-
-                    <!-- Date Presets -->
-                    <div class="input-group" style="margin-top: -10px;">
-                        <label style="font-size: 0.76rem;">Quick Presets</label>
-                        <div class="quick-presets">
-                            <button type="button" class="preset-chip" id="presetPast14"><i class='bx bx-history'
-                                    style="margin-right: 3px;"></i> Past 14 Days</button>
-                            <button type="button" class="preset-chip" id="presetPast30"><i class='bx bx-history'
-                                    style="margin-right: 3px;"></i> Past 30 Days</button>
-                            <button type="button" class="preset-chip" id="presetNext7"><i class='bx bx-trending-up'
-                                    style="margin-right: 3px;"></i> Next 7 Days (Future)</button>
-                            <button type="button" class="preset-chip" id="presetNext14"><i class='bx bx-trending-up'
-                                    style="margin-right: 3px;"></i> Next 14 Days (Future)</button>
                         </div>
                     </div>
 
@@ -1162,8 +1141,6 @@
         const fromDateInput = document.getElementById('fromDate');
         const toDateInput = document.getElementById('toDate');
         const modelSelect = document.getElementById('modelSelect');
-        const spanDates = document.getElementById('spanDates');
-        const spanPoints = document.getElementById('spanPoints');
         const btnSubmit = document.getElementById('btnSubmit');
         const btnSpinner = document.getElementById('btnSpinner');
         const btnText = document.getElementById('btnText');
@@ -1265,47 +1242,20 @@
             const entity = entitySelect.value;
             if (!entity) return;
 
-            spanDates.innerText = "Fetching...";
-            spanPoints.innerText = "...";
-
             try {
                 const res = await fetch(`/api/entity-info?level=${currentLevel}&entity=${encodeURIComponent(entity)}`);
                 const info = await res.json();
                 currentEntityInfo = info;
 
-                spanDates.innerText = `${info.data_start} to ${info.data_end}`;
-                spanPoints.innerText = `${info.n_points} daily points`;
-
-                fromDateInput.min = info.data_start;
-                fromDateInput.value = info.default_from;
-                toDateInput.value = info.default_to;
+                if (info.data_start) fromDateInput.min = info.data_start;
+                if (info.default_from) fromDateInput.value = info.default_from;
+                if (info.default_to) toDateInput.value = info.default_to;
             } catch (err) {
                 console.error("Failed to fetch entity info:", err);
-                spanDates.innerText = "Historical data span";
             }
         }
 
         entitySelect.addEventListener('change', onEntityChanged);
-
-        // Date Presets
-        document.getElementById('presetPast14').addEventListener('click', () => applyPreset(-14, 0));
-        document.getElementById('presetPast30').addEventListener('click', () => applyPreset(-30, 0));
-        document.getElementById('presetNext7').addEventListener('click', () => applyPreset(0, 7));
-        document.getElementById('presetNext14').addEventListener('click', () => applyPreset(0, 14));
-
-        function applyPreset(offsetStart, offsetEnd) {
-            if (!currentEntityInfo) return;
-            const refDate = new Date(currentEntityInfo.data_end);
-
-            const start = new Date(refDate);
-            start.setDate(start.getDate() + offsetStart);
-
-            const end = new Date(refDate);
-            end.setDate(end.getDate() + offsetEnd);
-
-            fromDateInput.value = start.toISOString().split('T')[0];
-            toDateInput.value = end.toISOString().split('T')[0];
-        }
 
         // Counter Animation
         function animateCounter(targetValue) {
