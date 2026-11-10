@@ -20,8 +20,14 @@ import numpy as np
 import pandas as pd
 import joblib
 from statsmodels.tsa.stattools import adfuller
-import pmdarima as pm
-from pmdarima.arima import ARIMA
+try:
+    import pmdarima as pm
+    from pmdarima.arima import ARIMA
+    PMDARIMA_AVAILABLE = True
+except Exception:
+    pm = None
+    ARIMA = None
+    PMDARIMA_AVAILABLE = False
 
 # Ensure imports from local src directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
