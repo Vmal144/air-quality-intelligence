@@ -37,36 +37,44 @@ except Exception:
     TF_AVAILABLE = False
     lstm_predict, evaluate_lstm = None, None
 
-# Load trained Random Forest model (Phase 2)
+# Model paths & lazy loaders
 RF_MODEL_PATH = os.path.join(BASE_DIR, "model.joblib")
-rf_model = None
-if os.path.exists(RF_MODEL_PATH):
-    try:
-        rf_model = joblib.load(RF_MODEL_PATH)
-    except Exception as e:
-        print(f"Warning: Could not load Random Forest model: {e}")
-
-# Load trained Gradient Boosting model (Phase 2)
 GB_MODEL_PATH = os.path.join(BASE_DIR, "model_gb.joblib")
-gb_model = None
-if os.path.exists(GB_MODEL_PATH):
-    try:
-        gb_model = joblib.load(GB_MODEL_PATH)
-    except Exception as e:
-        print(f"Warning: Could not load Gradient Boosting model: {e}")
-
-# Raw dataset for ensemble features
 DATASET_PATH = os.path.join(BASE_DIR, "data", "enriched_aqi_dataset.csv")
 if not os.path.exists(DATASET_PATH):
     DATASET_PATH = os.path.join(BASE_DIR, "..", "enriched_aqi_dataset.csv")
 
+rf_model = None
+gb_model = None
 raw_df = None
-if os.path.exists(DATASET_PATH):
-    try:
-        raw_df = pd.read_csv(DATASET_PATH)
-        raw_df["last_update"] = pd.to_datetime(raw_df["last_update"], format="mixed", errors="coerce")
-    except Exception as e:
-        print(f"Warning: Could not load raw dataset: {e}")
+
+def get_rf_model():
+    global rf_model
+    if rf_model is None and os.path.exists(RF_MODEL_PATH):
+        try:
+            rf_model = joblib.load(RF_MODEL_PATH)
+        except Exception as e:
+            print(f"Warning: Could not load Random Forest model: {e}")
+    return rf_model
+
+def get_gb_model():
+    global gb_model
+    if gb_model is None and os.path.exists(GB_MODEL_PATH):
+        try:
+            gb_model = joblib.load(GB_MODEL_PATH)
+        except Exception as e:
+            print(f"Warning: Could not load Gradient Boosting model: {e}")
+    return gb_model
+
+def get_raw_df():
+    global raw_df
+    if raw_df is None and os.path.exists(DATASET_PATH):
+        try:
+            raw_df = pd.read_csv(DATASET_PATH)
+            raw_df["last_update"] = pd.to_datetime(raw_df["last_update"], format="mixed", errors="coerce")
+        except Exception as e:
+            print(f"Warning: Could not load raw dataset: {e}")
+    return raw_df
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -118,15 +126,16 @@ def predict_ensemble_model(model_name: str, entity: str, level: str, start_dt: p
     """
     Generate daily predictions using Phase 2 Ensemble models (Random Forest or Gradient Boosting).
     """
-    active_model = rf_model if model_name == "Random Forest" else gb_model
-    if active_model is None or raw_df is None:
+    active_model = get_rf_model() if model_name == "Random Forest" else get_gb_model()
+    df_data = get_raw_df()
+    if active_model is None or df_data is None:
         return None
 
     if level.lower() == "station":
-        entity_df = raw_df[raw_df["station"] == entity]
+        entity_df = df_data[df_data["station"] == entity]
         state_name = entity_df["state"].iloc[0] if not entity_df.empty else "Delhi"
     else:
-        entity_df = raw_df[raw_df["state"] == entity]
+        entity_df = df_data[df_data["state"] == entity]
         state_name = entity
 
     lat_default = float(entity_df["latitude"].dropna().mean()) if not entity_df.empty else 28.6139
