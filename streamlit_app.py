@@ -312,7 +312,7 @@ with col_results:
                         if p_arima:
                             predictions_dict["ARIMA"] = p_arima
                     if model_name in ["RNN (LSTM)", "Compare Both"]:
-                        p_lstm = predict_lstm_robust(entity, start_dt, end_dt)
+                        p_lstm = predict_lstm_robust(entity, level, start_dt, end_dt, series)
                         if p_lstm:
                             predictions_dict["RNN (LSTM)"] = p_lstm
                 else:

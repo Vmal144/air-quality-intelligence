@@ -228,6 +228,47 @@ def predict_lstm_fallback(entity: str, level: str, start_dt: pd.Timestamp, end_d
     return records
 
 
+def predict_lstm_robust(entity: str, level: str = "State", start_dt: pd.Timestamp = None, end_dt: pd.Timestamp = None, series: pd.DataFrame = None):
+    """Generate daily predictions using LSTM neural model with robust fallback."""
+    if TF_AVAILABLE and lstm_predict is not None:
+        try:
+            lstm_df = lstm_predict(entity, start_dt, end_dt)
+            if lstm_df is not None and not lstm_df.empty:
+                lstm_df["AQI_Bucket"] = lstm_df["predicted_AQI"].apply(lambda v: aqi_to_bucket(round(v)))
+                return lstm_df.to_dict(orient="records")
+        except Exception as e:
+            print(f"TF LSTM inference error, switching to fallback: {e}")
+    if series is None:
+        series = get_entity_series_cached(level, entity)
+    return predict_lstm_fallback(entity, level, start_dt, end_dt, series)
+
+
+def compute_metrics(actual_series: list, pred_records: list) -> dict:
+    """Compute benchmark performance metrics between actuals and predictions."""
+    try:
+        act_map = {x["timestamp"]: x["aqi"] for x in actual_series if "timestamp" in x and "aqi" in x}
+        matched_act = []
+        matched_pred = []
+        for p in pred_records:
+            ts = p.get("timestamp")
+            if ts in act_map:
+                matched_act.append(act_map[ts])
+                matched_pred.append(p.get("predicted_AQI", 0.0))
+        if len(matched_act) >= 2:
+            y_t = np.array(matched_act)
+            y_p = np.array(matched_pred)
+            return {
+                "MAE": round(float(mae(y_t, y_p)), 2),
+                "RMSE": round(float(rmse(y_t, y_p)), 2),
+                "MAPE": round(float(mape(y_t, y_p)), 1),
+                "R2": round(float(r_squared(y_t, y_p)), 4),
+                "Cat_Accuracy": round(float(category_accuracy(y_t, y_p)) * 100, 1)
+            }
+    except Exception as e:
+        print(f"Error computing metrics: {e}")
+    return None
+
+
 # ── Health Advisory Content ──────────────────────────────────────────────
 ADVISORIES = {
     "Good": {
